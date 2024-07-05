@@ -1,7 +1,9 @@
 import dash 
 from dash import html
 from dash import dcc
-from dash.dependencies import Input, Output, State
+from dash import dash_table
+from dash.dependencies import Input, Output
+
 import pandas as pd
 import plotly.express as px
 
@@ -9,77 +11,85 @@ import plotly.express as px
 df = pd.read_csv('nba_2013.csv')
 df['age_group'] = ['rookie' if age < 24 else 'senior' for age in df['age']]
 
-# Initialiser l'application Dash
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets,suppress_callback_exceptions=True)
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)
 
-# Définir la mise en page de l'application
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
-    html.Div(id='page-content')
+    html.Div(id = 'page-content')
 ])
+
+# Page 0 - Accueil ---------------------------------------------------------------------
 
 index_page = html.Div([
-    html.H1("Page d'accueil", style={'color' : 'aquamarine', 'textAlign': 'center'}),
-    html.Button('Comparatif de joueurs', id='compare-button'),
-])
+    html.H1('NBA Dashboard', style={'color' : 'aquamarine', 'textAlign': 'center'}),
+    html.Button(dcc.Link('Comparatif de joueurs', href='/page-1')),
+    html.Br(),
+    html.Button(dcc.Link('Comparatif d\'équipes', href='/page-2'))
+], style={'alignItems': 'center'})
 
-compare_page = html.Div([
-    html.H1("Comparatif de joueurs"),
-    dcc.Dropdown(
-        id='rookie-dropdown',
-        options=[{'label': i, 'value': i} for i in df[df['age_group'] == 'rookie']['player'].unique()],
-        placeholder="Sélectionnez un rookie"
-    ),
-    dcc.Dropdown(
-        id='senior-dropdown',
-        options=[{'label': i, 'value': i} for i in df[df['age_group'] == 'senior']['player'].unique()],
-        placeholder="Sélectionnez un senior"
-    ),
-    html.Div(id='display-selected-values'),
-    html.Button('Retour', id='back-button'),
-])
 
-# Mettre à jour la page en fonction de l'URL
-@app.callback(Output('page-content', 'children'),
-              Input('url', 'pathname'))
+# Page 1 - Comparatif de joueurs --------------------------------------------------------
+
+layout_1 = html.Div([
+    html.H1('Comparatif de joueurs', style={'textAlign': 'center', 'color': 'mediumturquoise'}),
+
+    html.Div(dcc.Dropdown(id = 'page-1-dropdown',
+                        options= [{'label': 'rookie - joueur de moins de 24 ans', 'value': 'rookie'},
+                                  {'label': 'senior - joueur de plus de 24 ans', 'value': 'senior'}],
+                        value= 'rookie')),
+
+    html.Div(id='page-1-table'),
+
+    html.Button(dcc.Link('Retour à la page d\'accueil', href='/'))
+
+], style = {'background' : 'beige'})
+
+@app.callback(Output (component_id='page-1-table', component_property='children'),
+    [Input (component_id='page-1-dropdown', component_property='value')])
+
+def update_table(age_group):
+    filtered_df = df[df["age_group"] == age_group]
+    return dash_table.DataTable(data=filtered_df.to_dict('records'), columns=[{'name': i, 'id': i} for i in filtered_df.columns])
+
+# Page 2 - comparatif d'équipes -----------------------------------------------------------
+
+layout_2 = html.Div([
+  html.H1('Comparatif d\'équipes', style={'textAlign': 'center', 'color': 'mediumturquoise'}),
+
+  html.Div(dcc.Dropdown(id = 'page-2-dropdown',
+                        options= [{'label': 'nombre de passes', 'value': 'ast'}],
+                        value= 'ast'
+  )),
+
+  html.Div(id='page-2-graph'),
+
+  html.Button(dcc.Link('Retour à la page d\'accueil', href='/'))
+
+], style = {'background' : 'beige'})
+
+@app.callback(Output (component_id='page-2-graph', component_property='children'),
+    [Input (component_id='page-2-dropdown', component_property='value')])
+
+def update_graph_1(indicator):
+    df_grouped = df.groupby('bref_team_id')[indicator].sum().reset_index()
+    df_grouped = df_grouped.nlargest(5, indicator)
+    fig = px.bar(df_grouped, x='bref_team_id', y=indicator, title=f"Top 5 équipes pour {indicator}")
+    return dcc.Graph(figure=fig)
+
+# Mise à jour de l'index
+
+@app.callback(dash.dependencies.Output('page-content', 'children'),
+    [dash.dependencies.Input('url', 'pathname')])
+
 def display_page(pathname):
-    if pathname == '/compare':
-        return compare_page
+    if pathname == '/page-1':
+        return layout_1
+    elif pathname == '/page-2':
+        return layout_2
     else:
         return index_page
-    
-# Naviguer vers la page de comparaison lorsque le bouton est cliqué
-@app.callback(Output('url', 'pathname'),
-              [Input('compare-button', 'n_clicks'), Input('back-button', 'n_clicks')])
-def navigate(n_clicks_compare, n_clicks_back):
-    ctx = dash.callback_context
 
-    # Vérifier quel bouton a été cliqué
-    if not ctx.triggered:
-        return '/'
-    else:
-        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-
-    if button_id == 'compare-button' and n_clicks_compare:
-        return '/compare'
-    elif button_id == 'back-button' and n_clicks_back:
-        return '/'
-
-# Afficher les statistiques des joueurs sélectionnés
-@app.callback(Output('display-selected-values', 'children'),
-              Input('rookie-dropdown', 'value'),
-              Input('senior-dropdown', 'value'))
-def display_selected_values(rookie, senior):
-    if rookie and senior:
-        rookie_stats = df[df['player'] == rookie].iloc[0]
-        senior_stats = df[df['player'] == senior].iloc[0]
-        return html.Div([
-            html.H2("Statistiques du rookie"),
-            html.P(rookie_stats.to_string()),
-            html.H2("Statistiques du senior"),
-            html.P(senior_stats.to_string()),
-        ])
 
 # Exécuter l'application
 if __name__ == '__main__':
