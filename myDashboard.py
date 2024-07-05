@@ -69,7 +69,8 @@ def update_page_content(value):
             ]
             card = html.Div(
                 dbc.Card(card_content, color="primary", inverse=True),
-                className="mb-3",
+                className="col-md-8",
+                style={"maxWidth": "260px"},
             )
             cards.append(card)
         return cards
@@ -110,7 +111,7 @@ def update_graph(indicator, pos):
     df_filtered = df[df['pos'] == pos_map[pos]]
     df_grouped = df_filtered.groupby('bref_team_id')[indicator].sum().reset_index()
     df_grouped = df_grouped.nlargest(5, indicator)
-    fig = px.bar(df_grouped, x='bref_team_id', y=indicator, title=f"Top 5 des équipes parmi les : <br>Point Guard (PG), Power Forward (PF), Center (C), Small Forward (SF), Shooting Guard (SG) - ind: {pos_map[pos]} -")
+    fig = px.bar(df_grouped, x='bref_team_id', y=indicator, title=f"Top 5 des équipes comprenant les : <br>Point Guard (PG), Power Forward (PF), Center (C), Small Forward (SF), Shooting Guard (SG) - ind: {pos_map[pos]} -")
     return dcc.Graph(figure=fig)
 
 # Mise à jour de l'index
