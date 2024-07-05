@@ -39,7 +39,7 @@ layout_1 = html.Div([
                                   {'label': 'senior - joueur de plus de 24 ans', 'value': 'senior'}],
                         value= 'rookie')),
 
-    html.Div(id='page-1-table'),
+    html.Div(id='page-1-table'),    
 
     html.Button(dcc.Link('Retour à la page d\'accueil', href='/'))
 
@@ -62,6 +62,15 @@ layout_2 = html.Div([
                         value= 'ast'
   )),
 
+  html.Div(dcc.Slider(id='page-2-slider',
+                      min=0,
+                      max=4,
+                      step=None,
+                      marks={0: 'Point Guard', 1: 'Power Forward', 2: 'Center', 3: 'Small Forward', 4: 'Shooting Guard'},
+                      value=0)),  # change 'PG' to 0
+  
+  html.Br(),
+  
   html.Div(id='page-2-graph'),
 
   html.Button(dcc.Link('Retour à la page d\'accueil', href='/'))
@@ -69,12 +78,15 @@ layout_2 = html.Div([
 ], style = {'background' : 'beige'})
 
 @app.callback(Output (component_id='page-2-graph', component_property='children'),
-    [Input (component_id='page-2-dropdown', component_property='value')])
+              [Input (component_id='page-2-dropdown', component_property='value'),
+               Input (component_id='page-2-slider', component_property='value')])
 
-def update_graph_1(indicator):
-    df_grouped = df.groupby('bref_team_id')[indicator].sum().reset_index()
+def update_graph_1(indicator, pos):
+    pos_map = {0: 'PG', 1: 'PF', 2: 'C', 3: 'SF', 4: 'SG'}
+    df_filtered = df[df['pos'] == pos_map[pos]]
+    df_grouped = df_filtered.groupby('bref_team_id')[indicator].sum().reset_index()
     df_grouped = df_grouped.nlargest(5, indicator)
-    fig = px.bar(df_grouped, x='bref_team_id', y=indicator, title=f"Top 5 équipes pour {indicator}")
+    fig = px.bar(df_grouped, x='bref_team_id', y=indicator, title=f"Top 5 des équipes qui font le plus de passes - ind: {indicator} - parmi les : <br>Point Guard (PG), Power Forward (PF), Center (C), Small Forward (SF), Shooting Guard (SG) - ind: {pos_map[pos]} -")
     return dcc.Graph(figure=fig)
 
 # Mise à jour de l'index
